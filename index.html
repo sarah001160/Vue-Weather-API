@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>天氣api-Vue元件</title>
+      <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous"><!--BS4-->
+      <link rel="stylesheet" href="css/all.css"><!--fontawesome-->
+      <script src='https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.common.dev.js'></script><!--Vue.js開發版本-->
+      <script src='https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.common.js'></script><!---Vue.js普通版-->
+      <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/core.js'></script><!--jQuery-->
+</head>
+<style>
+  .status-aqi2 {
+      background-color: #ffff00;
+  }
+  .status-aqi3 {
+    background-color: #ff7e00;
+  }
+  .status-aqi4 {
+    background-color: #ff0000;
+  }
+  .status-aqi5 {
+    background-color: #8f3f97;
+  }
+  .status-aqi6 {
+    background-color: #7e0023;
+  }
+</style>
+<body>
+  <div id="app">
+      <select name="" id="" class="form-control mb-3" v-model='filter'>
+        <option value="">--- 請選擇城市 ---</option>
+        <option v-for="county in uniqCounty" :value="county">{{ county }}</option>
+      </select>
+      <div>
+        <h4>關注城市</h4>
+        <div class="card-columns"><!--加入星號-->
+          <template v-for='data in starData'>
+            <city-card :data='data' :star='true' @stare='toggleStared'>
+            </city-card>
+          </template>
+        </div>
+     </div>
+  
+     <hr><!--水平線-->
+      <div class="card-columns"><!--移除星號-->
+        <template v-for="data in filterData">
+          <city-card :data='data' :star='false' @stare='toggleStared'>
+          </city-card>
+        </template>
+      </div>
+    </div>
+
+<script type="text/x-template" id="cityCard">
+  <div class="card" :class="statusCssClass">
+    <div class="card-header">
+      {{ data.County + ' - ' + data.SiteName }}
+      <a href="#" class="float-right" @click.prevent="addStated">
+        <i class="fa-star" :class='iconClass'></i>
+      </a>
+    </div>
+    <div class="card-body">
+      <ul class="list-unstyled">
+        <li>{{ "AQI 指數: " + String(data.AQI) }}</li>
+        <li>{{ "PM2.5: " + String(data["PM2.5"]) }}</li>
+        <li>{{ "說明: " + data.Status }}</li>
+      </ul>
+      {{ data.PublishTime }}
+    </div>
+  </div>
+</script>
+
+
+
+<script>
+  Vue.component('city-card', {
+     props: ['data','star'],
+     template: '#cityCard',
+     methods: {
+        addStated(){
+          this.$emit('stare', this.data.SiteName)
+        },
+       },
+      computed: {
+        statusCssClass: function(){
+          switch (this.data.Stauts) {
+            case '良好':
+            default:
+              return ''
+            case '普通':
+              return 'status-aqi2'
+            case '對敏感族群不健康':
+              return 'status-+'
+            case '對所有族群不健康':
+              return 'status-aqi4'
+            case '非常不健康':
+              return 'status-aqi5'
+            case '危害':
+              return 'status-aqi6'
+            }
+        },
+        iconClass: function(){
+            if(this.star){
+               return 'fas'//這是class名稱來自fontawesome套件 fullstar
+            }else{
+              return 'far'//這是class名稱來自fontawesome套件 linestar
+            }
+        }
+      }
+  });
+
+  var app = new Vue({
+    el: '#app',
+    data: {
+      data: [],
+      location: [],
+      stared: JSON.parse(localStorage.getItem('staredCitys')) || [],
+      filter: '',
+    },
+    // 請在此撰寫 JavaScript
+    created: function(){
+      this.getData();
+    },
+
+    methods: {
+      getData() {
+        const vm = this;
+        const api = 'https://script.google.com/macros/s/AKfycbzl6KKgb4v2-F3SCVxVaXjnMwM_XQvnk2A08nw7NjmGfuRVmak0/exec?url=http://opendata2.epa.gov.tw/AQI.json';
+
+        // 使用 jQuery ajax
+        fetch(api)
+        .then((res)=> res.json())
+        .then((result)=> 
+          {vm.data = result
+            console.log(result)})
+       // $.get(api).then(function( response ) {
+         // vm.data = response;
+         // console.log(response)
+       // });
+      },
+
+
+      toggleStared(SiteName){//判斷加入星號或從星號刪除的機制!
+        var Index = this.stared.findIndex(d=>d==SiteName)
+        if(this.stared.findIndex(d=>d==SiteName)==-1){//加入星號
+          this.stared.push(SiteName)
+        }else{
+          this.stared.splice(Index,1)//從星號陣列刪除
+        }
+        localStorage.setItem('staredCitys', JSON.stringify(this.stared));
+      },
+  },
+    computed: {
+      uniqCounty: function(){
+        if (this.data.length != 0){
+          return this.data.map(item => item.County).filter((value, index, self) => self.indexOf(value) === index)
+        }else{
+          return []
+        }
+      },
+      filterData:function(){
+        const vm = this;
+        var result = vm.data
+        if(vm.stared.length>0){
+          result = vm.data.filter((value,index)=>!vm.stared.includes(value.SiteName))
+        }
+        if(vm.filter ==''){return result}else{
+          return result.filter((value,index)=>value.County==vm.filter)
+        }
+      },
+      starData:function(){
+        const vm = this;
+        return vm.data.filter((value,index)=>vm.stared.includes(value.SiteName))
+      },//.include的用法為檢測是否含有該條件,含有,回傳true;不含,回傳false
+    }
+  });
+</script>
+</body>
+</html>
